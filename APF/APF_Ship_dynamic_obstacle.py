@@ -2,25 +2,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # 定义船舶和目标点及障碍物的初始坐标
-ship_position = np.array([0, 0])
+ship_position = np.array([1, 1])
 target_position = np.array([9,9])
-obstacle_position = np.array([[1.1,0.9],
-                              [2.4,2.5],
-                              [2.9,3.1],
-                              [3.8,4.0],
-                              [4.0,5.0],
-                              [5.9,6.2],
-                              [8.1,8.3]])
 
 # 定义人工势场法参数
 attractive_force_gain = 0.5 # 引力的增益系数
 obstacle_force_gain = 0.2  # 斥力的增益系数
-obstacle_influence = 1.5  # 障碍物对船舶产生作用的最大影响范围
+obstacle_influence = 2  # 障碍物对船舶产生作用的最大影响范围
+
+obstacle_num = 1
+# obstacle_position = np.random.uniform(0.9,1,(1, 2)) * 10  # 随机生成初始位置，假设地图大小是10x10
+obstacle_position = np.random.uniform(3,4,(1, 2)) + np.array([0,2])  # 随机生成初始位置在（8，2）到（9，4）这个区域内
 
 len_step = 0.05 #步长
 n = 2 #改进的调节因子
 num_iter = 500 #迭代次数
-obstacle_num = 10 #障碍物个数
+obstacle_num = 1 #障碍物个数
 
 path = np.array([ship_position]) #保存船舶走过的每个点的坐标
 
@@ -30,20 +27,14 @@ grid_size = 11
 # 创建栅格地图
 grid_map = np.zeros((grid_size, grid_size))
 
-def obstacle_generation():
+def obstacle_change():
     
-    # 静态
-    for i in range(obstacle_num):
-        # 生成随机斜率和截距
-        k = np.random.uniform(0.9,1.1,(obstacle_num,1))  # 随机斜率，避免斜率为0
-        b = np.random.uniform(-1,1,(obstacle_num,1)) # 随机截距,0-1的范围内
-        
-        x = np.random.uniform(1, 8.5, (obstacle_num, 1)) #在1-8.5之间随机生成x坐标
-        y = k * x + b
+    #动态
+    x_range = np.random.uniform(0,0.03, size=(obstacle_num, 1))  # 生成 x 坐标
+    y_range = np.random.uniform(-0.1,0, size=(obstacle_num, 1))  # 生成 y 坐标
+    position = np.hstack((x_range,y_range))
 
-    obstacle_position = np.column_stack((x, y)) #将x坐标和y坐标合成为二维数组
-
-    return obstacle_position
+    return position
 
 # 基于改进的APF计算人工势场力
 def calculate_force(position,obstacle_position):
@@ -77,7 +68,6 @@ def calculate_force(position,obstacle_position):
 
     return total_force
 
-# print(calculate_force(ship_position,obstacle_position))
 # 更新船舶位置
 def update_ship_position(position, force):
     
@@ -88,11 +78,10 @@ def update_ship_position(position, force):
     return new_position
 
 # 可视化地图和船舶路径
-def visualize_map(grid_map, ship_position,obstacle_position,path):
+def visualize_map(grid_map, ship_position,path):
     plt.imshow(grid_map,cmap='cool')
     plt.plot(ship_position[0], ship_position[1],marker='o', color='red')#船舶初始位置
     plt.plot(target_position[0], target_position[1], marker='x', color='blue')#目标位置
-    plt.plot(obstacle_position[:, 0], obstacle_position[:, 1],marker='v', color='green',linestyle='None')#离散的障碍物位置
     plt.xlabel('X')
     plt.ylabel('Y')
     plt.title('Ship Path Planning using Artificial Potential Field')
@@ -100,28 +89,65 @@ def visualize_map(grid_map, ship_position,obstacle_position,path):
     
 def visualize_path():
     plt.plot(path[:,0], path[:,1],color='black')#轨迹
-    plt.pause(0.1) #延时0.1s
-    
+    # plt.pause(0.1) #延时0.1s
+
+def visualize_obstacle():
+    plt.plot(obstacle_position[:,0], obstacle_position[:,1],marker='.',color='red')#障碍物
+
+
 #主程序
 
-#随机生成障碍物位置
-obstacle_position = obstacle_generation() 
-
 # 将地图可视化
-visualize_map(grid_map, path[0],obstacle_position,path)
+visualize_map(grid_map, path[0],path)
+
+obstacle_position += obstacle_change()
+print(obstacle_position)
 
 for i in range(num_iter):
+
+
+    if 0 <= obstacle_position[0][0] < grid_size-1 and 0 <= obstacle_position[0][1] < grid_size-1:
+        obstacle_position += obstacle_change()
+        # obstacle_position[0] = np.clip(obstacle_position[j], 0, grid_size - 1)
+    # obstacle_position += obstacle_change()#得到障碍物变化图
+    # obstacle_position = np.clip(obstacle_position, 0, grid_size - 1)#限制在地图中
+    # print(obstacle_position)
+    
     force = calculate_force(ship_position,obstacle_position)
     new_position = update_ship_position(ship_position,force)
     ship_position= np.squeeze(new_position)#将新的坐标降维成一维数组
     path = np.append(path,new_position,axis= 0) #保存更新后的位置信息，形成轨迹
+    
     visualize_path()
-    print(force)
+    visualize_obstacle()
+    plt.pause(0.1)
+    # print(force)
+    
     if np.array_equal(force, np.array([[0, 0]])):
         break
 
 # 显示最终图形
 plt.show()
+
+def determine_encounter_or_overtake(ship1_course, ship2_course):
+    # 计算航向交角的差值
+    angle_diff = abs(ship1_course - ship2_course)
+
+    if angle_diff <= 5 or (175 <= angle_diff <= 185):
+        return "交叉相遇"
+    elif 5 < angle_diff <= 112.5:
+        return "追越"
+    elif 112.5 < angle_diff <= 180:
+        return "追越"
+    else:
+        return "无法判定"
+
+# 示例用法
+ship1_course = 90
+ship2_course = 100
+
+result = determine_encounter_or_overtake(ship1_course, ship2_course)
+print(result)
 
 
 
