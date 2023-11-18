@@ -109,5 +109,4 @@ def update(frame):
     print()
 # 创建动画
 ani = FuncAnimation(fig, update, frames=np.arange(0, 200, 1), blit=False, repeat=False)
-
 plt.show()
