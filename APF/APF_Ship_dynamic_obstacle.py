@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 定义船舶和目标点及障碍物的初始坐标
+# 定义船舶和目标点的初始坐标
 ship_position = np.array([1, 1])
 target_position = np.array([9,9])
 
@@ -129,25 +129,6 @@ for i in range(num_iter):
 # 显示最终图形
 plt.show()
 
-def determine_encounter_or_overtake(ship1_course, ship2_course):
-    # 计算航向交角的差值
-    angle_diff = abs(ship1_course - ship2_course)
-
-    if angle_diff <= 5 or (175 <= angle_diff <= 185):
-        return "交叉相遇"
-    elif 5 < angle_diff <= 112.5:
-        return "追越"
-    elif 112.5 < angle_diff <= 180:
-        return "追越"
-    else:
-        return "无法判定"
-
-# 示例用法
-ship1_course = 90
-ship2_course = 100
-
-result = determine_encounter_or_overtake(ship1_course, ship2_course)
-print(result)
 
 
 

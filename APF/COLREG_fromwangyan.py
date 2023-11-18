@@ -120,7 +120,7 @@ class Zheng:
 
 
 # 示例用法
-ships_info = [[1.0, 2.0, 30.0, 10.0], [3.0, 4.0, 120.0, 12.0]]
+ships_info = [[1.0, 6.0, 250.0, 10.0], [3.0, 4.0, 120.0, 12.0]]
 zheng_instance = Zheng(ships_info)
 result = zheng_instance.get_result()
 encounter_type = zheng_instance.get_encounter()

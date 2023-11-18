@@ -1,33 +1,17 @@
 import numpy as np
+from Ship import Ship
 #不考虑经纬度转换
 
 #theta_T,phi_T,phi_0,R_T,DCPA
 
 #所有角度均是以北为正方向
 #ship_info包括坐标信息，以北为正方向的航向和速度信息
-class Ship:
-    def __init__(self, ship_info):
-        self.x = ship_info[0]
-        self.y = ship_info[1]
-        self.cor = ship_info[2] #航向
-        self.spe = ship_info[3] #速度
 
-    def get_x(self):
-        return self.x
-
-    def get_y(self):
-        return self.y
-
-    def get_spd(self):
-        return self.spe
-
-    def get_cor(self):
-        return self.cor
-
+#计算CPA
 class calCPA:
     def __init__(self,my_ship,target_ship):
-        self.my_ship = Ship(my_ship)#我船信息
-        self.target_ship = Ship(target_ship)#他船信息
+        self.my_ship = my_ship#我船信息
+        self.target_ship = target_ship#他船信息
         
     #位置
     def location(self):
@@ -59,7 +43,7 @@ class calCPA:
 
         return vR_x,vR_y
     
-    #alpha
+    #alpha（角度）
     def calculate_alpha(self):
         vR_x,vR_y = self.calculate_relative_velocity()
         if vR_x >= 0 and vR_y >= 0:
@@ -69,7 +53,7 @@ class calCPA:
         else:
             return 180
 
-    #他船相对本船的相对速度航向phi
+    #他船相对本船的相对速度航向phi(角度)
     def calculate_phi(self):
         vR_x, vR_y = self.calculate_relative_velocity()
         alpha = self.calculate_alpha()
@@ -83,7 +67,7 @@ class calCPA:
                            np.array([self.my_ship.get_x(),self.my_ship.get_y()]))
         return d
     
-    #方位alpha_t
+    #方位alpha_t（角度）
     def calculate_alpha_t(self):
         delta_y = self.target_ship.get_y() - self.my_ship.get_y()
         delta_x = self.target_ship.get_x() - self.my_ship.get_x()
@@ -109,17 +93,16 @@ class calCPA:
         #他船相对于本船的真方位
         alpha_T = self.calculate_alpha_t()
         
-        DCPA = R_T * np.sin(np.deg2rad(phi - alpha_T))
-        TCPA = R_T * np.cos(np.deg2rad(phi - alpha_T)) / vR
+        DCPA = R_T * np.sin(np.deg2rad(phi - alpha_T - np.pi))
+        # TCPA = R_T * np.cos(np.deg2rad(phi - alpha_T - np.pi)) / vR
         
-        return DCPA, TCPA
+        return DCPA
     
-    
-    
-class COLREG:
+class COLREGs_byzheng:
     def __init__(self,my_ship,target_ship):
         self.my_ship = Ship(my_ship)#我船信息
         self.target_ship = Ship(target_ship)#他船信息
+        self.num = 0 #遭遇种类
         self.encounter = None #遭遇类型
         
     def judge(self):
@@ -129,76 +112,96 @@ class COLREG:
         R_T = self.cal_distance() #两船距离
         theta_T = self.angle_normalization(self.get_alpha_T() - phi_0)#他船位于本船的舷角
         theta_0 = self.angle_normalization(self.get_alpha_0() - phi_T)#本船位于他船的舷角
+        DCPA = calCPA(self.my_ship,self.target_ship).getCPA()
         
-        LR = [False,False] #FT右转,TF左转,TT直航
+        L_or_R = [False,False] #FT右转,TF左转,TT直航
           
         if R_T <= 6: #6海里是遭遇类型判断条件
             if 0 <= theta_T <= 5:
-                LR[0] = False
-                LR[1] = True
+                L_or_R[0] = False
+                L_or_R[1] = True
                 if abs(180 - angle) <= 5:
+                    self.num = 1
                     self.encounter = 'HEAD_ON'  # (1) 对遇，让路，右转
                 else:
+                    self.num = 2
                     self.encounter = 'CROSS'  # (2) 交叉，让路，右转
             elif 5 < theta_T <= 67.5:
                 if abs(180 - angle) > 5:
-                    LR[0] = False
-                    LR[1] = True
+                    L_or_R[0] = False
+                    L_or_R[1] = True
+                    self.num = 3
                     self.encounter = 'CROSS' # (3) 交叉，让路，右转
             elif 67.5 < theta_T <= 112.5:
                 if abs(180 - angle) > 5:
-                    LR[0] = True
-                    LR[1] = False
+                    L_or_R[0] = True
+                    L_or_R[1] = False
+                    self.num = 4
                     self.encounter = 'CROSS'  # (4) 交叉，让路，左转
             elif 112.5 < theta_T < 247.5:
-                LR[0] = True
-                LR[1] = True 
+                L_or_R[0] = True
+                L_or_R[1] = True 
+                self.num = 5
                 self.encounter = 'OVERTAKE'  # (5)被追越，直航
             elif 247.5 < theta_T < 355:
                 if abs(180 - angle) > 5:
-                    LR[0] = True
-                    LR[1] = True 
+                    L_or_R[0] = True
+                    L_or_R[1] = True 
+                    self.num = 6
                     self.encounter = 'CROSS'  # (6) 交叉，直航
             elif 355 <= theta_T <= 360:
                 if abs(180 - angle) <= 5:
-                    LR[0] = False
-                    LR[1] = True
+                    L_or_R[0] = False
+                    L_or_R[1] = True
+                    self.num = 7
                     self.encounter = 'HEAD_ON'  # (7) 对遇，让路，右转
                 else:
-                    LR[0] = False
-                    LR[1] = True
+                    L_or_R[0] = False
+                    L_or_R[1] = True
+                    self.num = 8
                     self.encounter = 'CROSS'  # (8) 交叉，让路，右转
             
             if R_T <= 3 and angle <= 67.5:#进入本船追越的判断
                 if 112.5 <= theta_0 <= 180:
                     if DCPA < 0:
-                        LR[0] = True
-                        LR[1] = False
+                        L_or_R[0] = True
+                        L_or_R[1] = False
+                        self.num = 9
                         self.encounter = 'OVERTAKE'  # (9) 追越，让路，左转
                     else:
-                        LR[0] = False
-                        LR[1] = True
+                        L_or_R[0] = False
+                        L_or_R[1] = True
+                        self.num = 10
                         self.encounter = 'OVERTAKE'  # (10) 追越，让路，右转
                 elif 180 < theta_0 <= 210:
                     if DCPA < 0:
-                        LR[0] = True
-                        LR[1] = False
+                        L_or_R[0] = True
+                        L_or_R[1] = False
+                        self.num = 11
                         self.encounter = 'OVERTAKE'  # (11) 追越，让路，左转
                     else:
-                        LR[0] = False
-                        LR[1] = True
+                        L_or_R[0] = False
+                        L_or_R[1] = True
+                        self.num = 12
                         self.encounter = 'OVERTAKE'  # (12) 追越，让路，右转
                 elif 210 < theta_0 < 247.5:
                     if DCPA <= 0:
-                        LR[0] = True
-                        LR[1] = False
-                        self.encounter = 'OVERTAKE'  # (11) 追越，让路，左转
+                        L_or_R[0] = True
+                        L_or_R[1] = False
+                        self.num = 14
+                        self.encounter = 'OVERTAKE'  # (14) 追越，让路，左转
                     else:
-                        LR[0] = False
-                        LR[1] = True
-                        self.encounter = 'OVERTAKE'  # (12) 追越，让路，右转
+                        L_or_R[0] = False
+                        L_or_R[1] = True
+                        self.num = 13
+                        self.encounter = 'OVERTAKE'  # (13) 追越，让路，右转
         
-        return theta_0
+            # else:
+            #     L_or_R[0] = False
+            #     L_or_R[1] = False
+            #     self.num = 15
+            #     self.encounter = 'None' #（15）未到避碰局面
+        return L_or_R,self.encounter,self.num
     
     #计算距离
     def cal_distance(self):
@@ -240,12 +243,19 @@ class COLREG:
     #遭遇类型
     def get_encounter(self):
         return self.encounter
+    
+    #遭遇种类
+    def get_num(self):
+        return self.num
 
-shipA = [1.0, 2.0, 0.0, 10.0]
-shipB = [3.0, 4.0, 90.0, 0.0]
-ships_info = [shipA,shipB]
+# shipA = [1.0, 6.0, 30.0, 10.0]
+# shipB = [3.0, 4.0, 120.0, 12.0]
 
-# a = COLREG(shipA,shipB).judge()
-a,b = calCPA(shipA,shipB).getCPA()
+# L_or_R,encounter,num = COLREGs_byzheng(shipA,shipB).judge()
 
-print(a)
+# print(f"theta_T: {theta_T}")
+# print(f"theta_0: {theta_0}")
+# print(f"DCPA: {DCPA}")
+# print(f"L_or_R: {L_or_R}")
+# print(f"Encounter Type: {encounter}")
+# print(f"Encounter Num: {num}")
