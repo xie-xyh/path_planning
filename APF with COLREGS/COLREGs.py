@@ -1,5 +1,6 @@
 import numpy as np
-from Ship import Ship
+import Ship
+import calCPA
 #不考虑经纬度转换
 
 #theta_T,phi_T,phi_0,R_T,DCPA
@@ -8,24 +9,33 @@ from Ship import Ship
 #ship_info包括坐标信息，以北为正方向的航向和速度信息
 
 class COLREGs_byzheng:
-    def __init__(self,my_ship,target_ship):
-        self.my_ship = Ship(my_ship)#我船信息
-        self.target_ship = Ship(target_ship)#他船信息
-        self.num = 0 #遭遇种类
+    def __init__(self,os,ts):
+        
+        # 船舶信息
+        self.os = os #我船
+        self.ts = ts #他船
+        self.ox = np.float64(Ship.Ship(os).get_x()) # 我船位置
+        self.oy = np.float64(Ship.Ship(os).get_y())
+        self.tx = np.float64(Ship.Ship(ts).get_x()) # 他船位置
+        self.ty = np.float64(Ship.Ship(ts).get_y())
+        self.ov = np.float64(Ship.Ship(os).get_spd()) # 我船速度
+        self.tv = np.float64(Ship.Ship(ts).get_spd()) # 他船速度
+        self.oc = np.float64(Ship.Ship(os).get_cor()) # 我船航向
+        self.tc = np.float64(Ship.Ship(ts).get_cor()) # 他船航向
+
+        self.num = None #遭遇种类
         self.encounter = None #遭遇类型
-        self.epsilon = 1e-10 #设置三角函数转换的阈值
+        # self.flag = 0 #是否进入遭遇标志位
         
     def judge(self):
-        phi_T = self.target_ship.get_cor() #他船航向
-        phi_0 = self.my_ship.get_cor() #本船航向
-        angle = np.abs(phi_0 - phi_T) #航向夹角的绝对值
+        angle = abs(self.oc - self.tc) #航向夹角的绝对值
         R_T = self.cal_distance() #两船距离
-        theta_T = self.angle_normalization(self.get_alpha_T() - phi_0)#他船位于本船的舷角
-        theta_0 = self.angle_normalization(self.get_alpha_0() - phi_T)#本船位于他船的舷角
-        DCPA,TCPA = self.getCPA()
+        theta_T = self.angle_normalization(self.get_alpha_T() - self.oc)#他船位于本船的舷角
+        theta_0 = self.angle_normalization(self.get_alpha_0() - self.tc)#本船位于他船的舷角
+        
+        DCPA,TCPA = calCPA.calCPA(self.os,self.ts).getCPA()
         
         L_or_R = [False,False] #FT右转,TF左转,TT直航
-    
         if R_T <= 6: #6海里是遭遇类型判断条件
             if 0 <= theta_T <= 5:
                 L_or_R[0] = False
@@ -105,44 +115,18 @@ class COLREGs_byzheng:
                         L_or_R[1] = True
                         self.num = 13
                         self.encounter = 'OVERTAKE'  # (13) 追越，让路，右转
-
+                
         return L_or_R,self.encounter,self.num
     
     #计算距离
     def cal_distance(self):
-        d = np.linalg.norm(np.array([self.target_ship.get_x(),self.target_ship.get_y()]) - 
-                           np.array([self.my_ship.get_x(),self.my_ship.get_y()]))
+        ox = np.float64(self.ox)
+        oy = np.float64(self.oy)
+        tx = np.float64(self.tx)
+        ty = np.float64(self.ty)
+        d = np.linalg.norm(np.array([ox, oy]) - 
+                           np.array([tx, ty]))
         return d
-    
-    #计算相对速度和方向
-    def cal_vR_phi(self):
-        phi_0 = np.deg2rad(self.my_ship.get_cor()) #本船航向
-        phi_T = np.deg2rad(self.target_ship.get_cor()) #他船航向
-
-        vA = self.my_ship.get_spd()
-        vB = self.target_ship.get_spd()
-
-        #角度是以北为正方向
-        vA_x = vA * np.sin(phi_0)
-        vA_y = vA * np.cos(phi_0)
-        vB_x = vB * np.sin(phi_T)
-        vB_y = vB * np.cos(phi_T)
-
-        vR_x = vB_x - vA_x
-        vR_y = vB_y - vA_y
-
-        # if vR_x >= 0 and vR_y >= 0:
-        #     alpha =  0
-        # elif vR_x < 0 and vR_y >= 0:
-        #     alpha =  360
-        # else:
-        #     alpha =  180
-
-        # vR = np.sqrt(np.square(vR_x) + np.square(vR_y))
-        
-        # phi = np.rad2deg(np.arctan2(vR_x,vR_y)) + alpha
-        
-        return np.array([vR_x,vR_y])
     
     #转化为正北为正方向
     def angle_change(self, rad):
@@ -156,15 +140,15 @@ class COLREGs_byzheng:
     
     #他船相对本船的位置
     def get_alpha_T(self):
-        theta = np.arctan2(self.target_ship.get_y() - self.my_ship.get_y(),
-                           self.target_ship.get_x() - self.my_ship.get_x())
+        theta = np.arctan2(self.ty - self.oy,
+                           self.tx - self.ox)
 
         return self.angle_change(theta)
 
     #本船相对他船的位置
     def get_alpha_0(self):
-        theta = np.arctan2(self.my_ship.get_y() - self.target_ship.get_y(),
-                           self.my_ship.get_x() - self.target_ship.get_x())
+        theta = np.arctan2(self.oy - self.ty,
+                           self.ox - self.tx)
 
         return self.angle_change(theta)
 
@@ -174,26 +158,6 @@ class COLREGs_byzheng:
         elif deg > 360:
             deg -= 360
         return deg
-    
-    #求CPA(向量方式)
-    def getCPA(self):
-        vR = self.cal_vR_phi()
-        # R_T = self.cal_distance()
-        # alpha_T = self.get_alpha_T()
-
-        ships_distance_location = np.array([self.target_ship.get_x() - self.my_ship.get_x(),
-                                            self.target_ship.get_y() - self.my_ship.get_y()])
-        
-        # DCPA = R_T * np.sin(np.deg2rad(phi - alpha_T - 180)) 
-        # TCPA = R_T * np.cos(np.deg2rad(phi - alpha_T - 180)) / vR
-
-        TCPA = -np.dot(ships_distance_location,vR.T)/ np.dot(vR,vR.T)
-        DCPA = np.linalg.norm(ships_distance_location + vR * TCPA) #缺少DCPA正负的判断
-        
-        if abs(DCPA) < 1e-10:
-            DCPA = 0
-        
-        return DCPA,TCPA
     
     #遭遇类型
     def get_encounter(self):
@@ -206,18 +170,7 @@ class COLREGs_byzheng:
         return self.num
 
 if  __name__ == '__main__':
-    shipA = [0.0, 0.0, 0.0, 1] 
-    shipB = [5.0, 5.0, 270.0, 1.5] 
-
-    # L_or_R,encounter,num,DCPA,TCPA = COLREGs_byzheng(shipA,shipB).judge()
-
-    # # print(f"theta_T: {theta_T}")
-    # # print(f"theta_0: {theta_0}")
-    # print(f"DCPA: {DCPA}")
-    # print(f"TCPA: {TCPA}")
-    # # print(f"L_or_R: {L_or_R}")
-    # print(f"Encounter Type: {encounter}")
-    # print(f"Encounter Num: {num}")
-
-    a,b = COLREGs_byzheng(shipA,shipB).getCPA()
-    print(a,b)
+    os = [0.0, 0.0, 0.0, 1] 
+    ts = [2, 2.0, 270.0, 1.5] 
+    a = COLREGs_byzheng(os,ts).get_encounter()
+    print(a)

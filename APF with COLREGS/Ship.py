@@ -1,4 +1,6 @@
-import numpy as np
+#导入船舶信息
+#[x,y,航向，速度]
+#航向是以正北为正方向
 class Ship:
     def __init__(self, ship_info):
         self.x = ship_info[0]
