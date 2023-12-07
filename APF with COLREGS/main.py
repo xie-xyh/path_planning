@@ -24,11 +24,14 @@ def update(frame):
         encounter = None
         
     apf = calAPF.calAPF(os,ts,goal,apf_values,encounter)
+    cpa = calCPA.calCPA(os,ts)
     delta_x,delta_y = apf.gradient_U_total()
     delta_x = np.float64(delta_x)
     delta_y = np.float64(delta_y)
-    a = apf.cal_ds_2()
+    a = apf.U_cross()
+    dcpa,tcpa = cpa.getCPA()
     print(a)
+    print(dcpa,tcpa)
     #人工势场法更新船的位置
     os[0] += os[3] * delta_x /20  # 更新我船的X坐标
     os[1] += os[3] * delta_y /20  # 更新我船的Y坐标
@@ -57,8 +60,8 @@ def update(frame):
     plt.grid(True)
     
 # 创建船对象
-os = [0.0, -8.0, 0.0, 0.1] # 我船的初始位置和速度
-ts = [4.0, -1.0, 270.0, 0.08] # 他船的初始位置和速度
+os = [0.0, -8.0, 0.0, 0.02] # 我船的初始位置和速度
+ts = [3.0, -4, 270.0, 0.02] # 他船的初始位置和速度
 os_track = []  # 存储我船的轨迹
 ts_track = []  # 存储他船的轨迹
 
@@ -67,7 +70,7 @@ goal = [0,10] #目标点位置
 #人工势场参数
 apf_values = {
     'k_att': 5, #吸引力势场系数
-    'k_rep': 200, #排斥势场系数
+    'k_rep': 10, #排斥势场系数
     'd1': 6, #预设的迎头情况参考距离
     'd2': 6, #预设的交叉情况参考距离
     'd3': 2, #预设的超车情况参考距离

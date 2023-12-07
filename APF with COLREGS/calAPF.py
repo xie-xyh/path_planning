@@ -1,16 +1,16 @@
 import sympy as sp
 import numpy as np
-import Ship
+from Ship import Ship
 import calCPA
 
 class calAPF():
     def __init__(self,our_ship,target_ship,goal,apf_values,encounter):
-        self.ox = np.float64(Ship.Ship(our_ship).get_x()) # 我船位置
-        self.oy = np.float64(Ship.Ship(our_ship).get_y())
-        self.tx = np.float64(Ship.Ship(target_ship).get_x()) # 他船位置
-        self.ty = np.float64(Ship.Ship(target_ship).get_y())
-        self.oc = np.float64(Ship.Ship(our_ship).get_cor()) # 我船角度
-        self.tc = np.float64(Ship.Ship(target_ship).get_cor()) # 他船角度
+        self.ox = Ship(our_ship).get_x # 我船位置
+        self.oy = Ship(our_ship).get_y
+        self.tx = Ship(target_ship).get_x # 他船位置
+        self.ty = Ship(target_ship).get_y
+        self.oc = Ship(our_ship).get_cor # 我船角度
+        self.tc = Ship(target_ship).get_cor # 他船角度
         self.encounter = encounter
         self.DCPA,self.TCPA = calCPA.calCPA(our_ship,target_ship).getCPA() #CPA
         
@@ -49,7 +49,7 @@ class calAPF():
             
         theta = np.deg2rad(theta) #将角度转化为弧度
         # 处理直线垂直于x轴的情况
-        if np.isclose(self.tc, 0) or np.isclose(theta, np.pi):
+        if np.isclose(self.tc, 0) or np.isclose(theta, 180):
             ds =  self.x - self.tx #包含在左边和右边的情况
         else:
             k = np.tan(theta)
@@ -58,10 +58,10 @@ class calAPF():
             c = self.ty - k * self.tx
             
             #计算距离
-            ds = self.judge_ds() * np.abs(a * self.ox + b * self.oy + c) / np.sqrt(a**2 + b**2)
+            ds = self.judge_ds() * np.abs(a * self.x + b * self.y + c) / np.sqrt(a**2 + b**2)
         
-        if abs(ds) < 1e-10:
-            ds = 0
+        # if abs(ds) < 1e-10:
+        #     ds = 0
             
         return ds
     
@@ -76,8 +76,8 @@ class calAPF():
             
         theta = np.deg2rad(theta) #将角度转化为弧度
         # 处理直线垂直于x轴的情况
-        if np.isclose(self.tc, np.pi / 2) or np.isclose(theta, 3 * np.pi / 2):
-            ds2 =  self.x - self.tx #包含在船尾和船头的情况
+        if np.isclose(self.tc, 90) or np.isclose(self.tc, 270):
+            ds2 =  self.tx - self.x #包含在船尾和船头的情况
         else:
             k = -1 / np.tan(theta) #横向中心线的斜率
             a = k
@@ -85,10 +85,10 @@ class calAPF():
             c = self.ty - k * self.tx
             
             #计算距离
-            ds2 = self.judge_ds2() * np.abs(a * self.ox + b * self.oy + c) / np.sqrt(a**2 + b**2)
+            ds2 = self.judge_ds2() * np.abs(a * self.x + b * self.y + c) / np.sqrt(a**2 + b**2)
         
-        if abs(ds2) < 1e-10:
-            ds2 = 0
+        # if abs(ds2) < 1e-10:
+        #     ds2 = 0
         
         return ds2
     
@@ -161,9 +161,9 @@ class calAPF():
         
         #真实值用于比较
         d_real = d.subs({self.x:self.ox, self.y:self.oy})
-        # ds2_real = ds2.subs({self.x:self.ox, self.y:self.oy})
+        ds2_real = ds2.subs({self.x:self.ox, self.y:self.oy})
 
-        if d_real < self.l_0 and ds2 > -self.d2 and self.TCPA >= 0:
+        if d_real < self.l_0 and ds2_real > -self.d2 and self.TCPA >= 0:
             U_rep = 1 / 2 * self.k_rep * np.square(ds2 + self.d2) / np.square(d)
         else:
             U_rep = 0
@@ -199,14 +199,11 @@ class calAPF():
 
         return -grad_x,-grad_y  # 返回梯度的反方向，即下降最快的方向
 
-if __name__ == '__main__':
+def main():
     os = [-3.0, -8.0, 15.0, 0.1] # 我船的初始位置和速度
     ts = [2.0, -3.0, 270.0, 0.08] # 他船的初始位置和速度
 
     goal = [10,10] #目标点位置
-
-    # #定义势场系数和其他参数
-    # k_att,k_rep, d1, d2, d3, l_t , l_0= sp.symbols('k_att k_rep d1 d2 d3 l_t l_0')
 
     #人工势场参数
     apf_values = {
@@ -218,6 +215,11 @@ if __name__ == '__main__':
         'l_t': 10, #TS的影响半径
         'l_0': 10, #TS的影响半径
     }
-    a = calAPF(os,ts,goal,apf_values,'None').gradient_U_total()
+    
+    a = calAPF(os,ts,goal,apf_values,'CROSS').gradient_U_total()
     print(a)
+    
+    
+if __name__ == '__main__':
+    main()
 

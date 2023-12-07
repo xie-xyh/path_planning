@@ -1,6 +1,6 @@
 import numpy as np
-import Ship
-import calCPA
+from Ship import Ship
+from calCPA import calCPA
 #不考虑经纬度转换
 
 #theta_T,phi_T,phi_0,R_T,DCPA
@@ -8,34 +8,36 @@ import calCPA
 #所有角度均是以北为正方向
 #ship_info包括坐标信息，以北为正方向的航向和速度信息
 
-class COLREGs_byzheng:
+class COLREGs_byzheng(Ship):
+    
     def __init__(self,os,ts):
         
         # 船舶信息
         self.os = os #我船
         self.ts = ts #他船
-        self.ox = np.float64(Ship.Ship(os).get_x()) # 我船位置
-        self.oy = np.float64(Ship.Ship(os).get_y())
-        self.tx = np.float64(Ship.Ship(ts).get_x()) # 他船位置
-        self.ty = np.float64(Ship.Ship(ts).get_y())
-        self.ov = np.float64(Ship.Ship(os).get_spd()) # 我船速度
-        self.tv = np.float64(Ship.Ship(ts).get_spd()) # 他船速度
-        self.oc = np.float64(Ship.Ship(os).get_cor()) # 我船航向
-        self.tc = np.float64(Ship.Ship(ts).get_cor()) # 他船航向
+        self.ox = Ship(os).get_x # 我船位置
+        self.oy = Ship(os).get_y
+        self.tx = Ship(ts).get_x # 他船位置
+        self.ty = Ship(ts).get_y
+        self.ov = Ship(os).get_spd # 我船速度
+        self.tv = Ship(ts).get_spd # 他船速度
+        self.oc = Ship(os).get_cor # 我船航向
+        self.tc = Ship(ts).get_cor # 他船航向
 
         self.num = None #遭遇种类
         self.encounter = None #遭遇类型
         # self.flag = 0 #是否进入遭遇标志位
-        
+    
     def judge(self):
         angle = abs(self.oc - self.tc) #航向夹角的绝对值
         R_T = self.cal_distance() #两船距离
         theta_T = self.angle_normalization(self.get_alpha_T() - self.oc)#他船位于本船的舷角
         theta_0 = self.angle_normalization(self.get_alpha_0() - self.tc)#本船位于他船的舷角
         
-        DCPA,TCPA = calCPA.calCPA(self.os,self.ts).getCPA()
+        DCPA,TCPA = calCPA(self.os,self.ts).getCPA()
         
         L_or_R = [False,False] #FT右转,TF左转,TT直航
+        
         if R_T <= 6: #6海里是遭遇类型判断条件
             if 0 <= theta_T <= 5:
                 L_or_R[0] = False
@@ -120,10 +122,10 @@ class COLREGs_byzheng:
     
     #计算距离
     def cal_distance(self):
-        ox = np.float64(self.ox)
-        oy = np.float64(self.oy)
-        tx = np.float64(self.tx)
-        ty = np.float64(self.ty)
+        ox = self.ox
+        oy = self.oy
+        tx = self.tx
+        ty = self.ty
         d = np.linalg.norm(np.array([ox, oy]) - 
                            np.array([tx, ty]))
         return d
@@ -167,10 +169,10 @@ class COLREGs_byzheng:
     #遭遇种类
     def get_num(self):
         self.judge()
-        return self.num
+        return self.num         
 
 if  __name__ == '__main__':
     os = [0.0, 0.0, 0.0, 1] 
     ts = [2, 2.0, 270.0, 1.5] 
-    a = COLREGs_byzheng(os,ts).get_encounter()
+    a = COLREGs_byzheng(os,ts).judge()
     print(a)

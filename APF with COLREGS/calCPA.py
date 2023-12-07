@@ -1,19 +1,19 @@
 #使用向量计算CPA
 
 import numpy as np
-import Ship
+from Ship import Ship
 
 class calCPA:
     def __init__(self, os, ts):
        
-        self.ox = np.float64(Ship.Ship(os).get_x()) # 我船位置
-        self.oy = np.float64(Ship.Ship(os).get_y())
-        self.tx = np.float64(Ship.Ship(ts).get_x()) # 他船位置
-        self.ty = np.float64(Ship.Ship(ts).get_y())
-        self.ov = np.float64(Ship.Ship(os).get_spd()) # 我船速度
-        self.tv = np.float64(Ship.Ship(ts).get_spd()) # 他船速度
-        self.oc = np.float64(Ship.Ship(os).get_cor()) # 我船航向
-        self.tc = np.float64(Ship.Ship(ts).get_cor()) # 他船航向
+        self.ox = Ship(os).get_x # 我船位置
+        self.oy = Ship(os).get_y
+        self.tx = Ship(ts).get_x # 他船位置
+        self.ty = Ship(ts).get_y
+        self.ov = Ship(os).get_spd # 我船速度
+        self.tv = Ship(ts).get_spd # 他船速度
+        self.oc = Ship(os).get_cor # 我船航向
+        self.tc = Ship(ts).get_cor # 他船航向
         
     #计算相对速度
     def cal_vR(self):
@@ -39,7 +39,7 @@ class calCPA:
         ships_distance_location = np.array([self.tx - self.ox,
                                             self.ty - self.oy])
 
-        TCPA = -np.dot(ships_distance_location,vR.T)/ np.dot(vR,vR.T)
+        TCPA = -np.dot(ships_distance_location,vR)/ np.linalg.norm(vR)**2
         DCPA = np.linalg.norm(ships_distance_location + vR * TCPA) #缺少DCPA正负的判断
         
         if abs(DCPA) < 1e-10:
@@ -50,6 +50,6 @@ class calCPA:
 #测试
 if __name__ == '__main__':
     os = [0.0, 0.0, 0.0, 1] 
-    ts = [0.0, 5.0, 180.0, 1.5] 
+    ts = [5.0, -5.0, 270.0, 1.5] 
     CPA= calCPA(os,ts).getCPA()
     print(CPA)
