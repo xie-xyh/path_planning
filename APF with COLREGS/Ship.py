@@ -7,6 +7,7 @@ class Ship:
         self._y = ship_info[1]
         self._cor = ship_info[2] #航向
         self._spe = ship_info[3] #速度
+        self._r = ship_info[4] #船舶领域半径
 
     @property
     def get_x(self):
@@ -23,3 +24,7 @@ class Ship:
     @property
     def get_cor(self):
         return self._cor
+    
+    @property
+    def get_r(self):
+        return self._r

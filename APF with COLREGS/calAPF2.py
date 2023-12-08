@@ -18,6 +18,9 @@ class calAPF():
         self.tv = Ship(ts).get_spd # 他船速度
         self.oc = Ship(os).get_cor # 我船角度
         self.tc = Ship(ts).get_cor # 他船角度
+        self.r_os = Ship(os).get_r #我船领域半径
+        self.r_ts = Ship(ts).get_r #他船领域半径
+        
         self.gx = goal[0] #目标位置
         self.gy = goal[1] 
 
@@ -27,10 +30,7 @@ class calAPF():
         self.eta_d = apf_values['eta_d']
         self.eta_s = apf_values['eta_s']
         self.eta_e = apf_values['eta_e']
-        self.R_ts = apf_values['R_ts']
-        self.theta_m = apf_values['theta_m']
-        self.cd = apf_values['cd']
-        self.dm = apf_values['dm']
+        self.d_safe = apf_values['d_safe']
         self.rho_0 = apf_values['rho_0']
         self.tau = apf_values['tau']
         
@@ -51,14 +51,14 @@ class calAPF():
         '''
         F = self.F_att_p() + self.F_att_v()
         return F 
-    
+
     def F_att_p(self):
         '''
         目标位置吸引力
         输入参数:无
         输出参数：目标位置吸引力
         '''
-        p_os_g = [self.gx - self.ox,self.gy - self.oy] #船和目标的相对位置
+        p_os_g = np.array([self.gx - self.ox, self.gy - self.oy]) #船和目标的相对位置
         norm_p = np.linalg.norm(p_os_g) #模长
         if norm_p <= 0.01:
             F = 0
@@ -81,12 +81,15 @@ class calAPF():
         输出参数:斥力大小
         '''
         d = self.distance_ship()
+        dm = self.d_m()
+        cd = self.CD()
         theta = self.theta()
-        if d > self.cd: #未进入避碰局面
+        theta_m = self.theta_m()
+        if d > cd: #未进入避碰局面
             F = np.array([0,0])
-        elif self.tv != 0 and self.dm < d < self.cd and theta < self.theta_m: #协商避碰，动态他船
+        elif self.tv != 0 and dm < d < cd and theta < theta_m: #协商避碰，动态他船
             F = self.F_req_NZ_D()
-        elif self.tv == 0 and self.dm < d < self.cd and theta < self.theta_m: #协商避碰，静态障碍物
+        elif self.tv == 0 and dm < d < cd and theta < theta_m: #协商避碰，静态障碍物
             F = self.F_req_NZ_S()
         else: #应急避碰
             F = np.array([0,0])
@@ -99,11 +102,11 @@ class calAPF():
         输出参数:斥力大小
         '''
         eta_d = self.eta_d
-        R_ts = self.R_ts
-        theta_m = np.deg2rad(self.theta_m)
+        R_ts = self.r_ts
+        theta_m = np.deg2rad(self.theta_m())
         theta = np.deg2rad(self.theta())
         d = self.distance_ship()
-        dm = self.dm
+        dm = self.d_m()
         rho_0 = self.rho_0
         dg = self.distance_goal()
         v_ot = self.speed()
@@ -116,11 +119,11 @@ class calAPF():
         
         F_rd1 = - eta_d * R_ts * dg * dg * (((1 / (d - dm)) - (1 / rho_0)) * np.exp(theta_m - theta) * (dm / (d * np.sqrt(d * d - dm * dm)) + (np.sin(theta) / v_ot)) 
         + ((np.exp(theta_m - theta) - 1) / np.square(d - dm)) - (1 / (d - dm) - 1 / rho_0) * ((dm / (d * np.sqrt(d * d - dm * dm))) + (np.sin(theta_m) / v_ot))) * n_ot
-        F_rd2 = eta_d * R_ts * dg * dg * (((1 / (d - dm)) - (1 / rho_0)) * np.exp(theta_m - theta) * ( 1 / p_ot + np.cos(theta) / v_ot) + (v_ot * (np.exp(theta_m - theta) - 1) / (d * np.square(d - dm)))
+        F_rd2 = - eta_d * R_ts * dg * dg * (((1 / (d - dm)) - (1 / rho_0)) * np.exp(theta_m - theta) * ( 1 / p_ot + np.cos(theta) / v_ot) + (v_ot * (np.exp(theta_m - theta) - 1) / (d * np.square(d - dm)))
         - (1 / (d - dm) - 1 / rho_0) * (1 / p_ot + np.cos(theta_m) / v_ot)) * n_ot_2
-        F_rd3 = eta_d * R_ts * dg * ((1 / (d - dm)) - (1 / rho_0)) *  (np.exp(np.deg2rad(theta_m - theta)) - 1) * n_og
+        F_rd3 = eta_d * R_ts * dg * ((1 / (d - dm)) - (1 / rho_0)) *  (np.exp(theta_m - theta) - 1) * n_og
         
-        F = (F_rd1 + F_rd2 + F_rd3) / 500
+        F = (F_rd1 + F_rd2 + F_rd3) 
         
         return F
     
@@ -131,7 +134,7 @@ class calAPF():
         输出参数:斥力大小
         '''
         eta_s = self.eta_s
-        R_ts = self.R_ts
+        R_ts = self.r_ts
         d = self.distance_ship()
         tau = self.tau
         rho_0 = self.rho_0
@@ -177,10 +180,10 @@ class calAPF():
         输入参数:无
         输出参数:速度向量
         '''
-        t_vx = self.tv * np.sin(self.tc)
-        t_vy = self.tv * np.cos(self.tc)
-        o_vx = self.ov * np.sin(self.oc)
-        o_vy = self.ov * np.cos(self.oc)
+        t_vx = self.tv * np.sin(np.deg2rad(self.tc))
+        t_vy = self.tv * np.cos(np.deg2rad(self.tc))
+        o_vx = self.ov * np.sin(np.deg2rad(self.oc))
+        o_vy = self.ov * np.cos(np.deg2rad(self.oc))
         v = [o_vx - t_vx,o_vy - t_vy]
         
         return v
@@ -216,16 +219,6 @@ class calAPF():
         
         return v
     
-    # def speed(self):
-    #     '''
-    #     我船和他船的相对速度逆时针旋转90度的大小
-    #     输入参数:无
-    #     输出参数:相对速度大小
-    #     '''
-    #     v = np.linalg.norm(self.relative_speed())
-        
-    #     return v
-    
     def theta(self):
         '''
         相对位置线和相对速度线之间的夹角
@@ -234,41 +227,80 @@ class calAPF():
         '''
         p = self.relative_position()
         v = self.relative_speed()
-        
-        dot_product = np.dot(p,v)
+
         norm_p = self.distance_ship()
         norm_v = self.speed()
         
-        angle = np.rad2deg(np.arccos(dot_product / (norm_p * norm_v)))
+        theta_pot = np.rad2deg(np.arccos(p[0] / norm_p))
+        theta_vot = np.rad2deg(np.arccos(v[0] / norm_v))
+        angle = abs(theta_vot - theta_pot)
         
         return angle
     
+    def theta_m(self):
+        '''
+        最大相对位置线夹角
+        输入参数:无
+        输出参数:角度
+        '''
+        d = self.distance_ship()
+        dm = self.d_m()
+        angle = np.rad2deg(np.arctan(dm / np.sqrt(d * d - dm * dm)))
+        
+        return angle
+        
+    def d_m(self):
+        '''
+        我船和他船之间的安全距离(领域半径)
+        输入参数:无
+        输出参数:安全距离
+        '''
+        R_os = self.r_os
+        d_safe = self.d_safe
+        R_ts = self.r_ts
+        dm = R_os + d_safe + R_ts
+        
+        return dm
+        
+    def CD(self):
+        '''
+        碰撞危险检测距离
+        输入参数:无
+        输出参数:检测距离
+        '''
+        dm = self.d_m()
+        CD = dm + self.rho_0
+        
+        return CD
+        
+    
 def main():
-    os = [0.0, -8.0, 0.0, 0.1] # 我船的初始位置和速度
-    ts = [2.5, -3.0, 210.0, 0.2] # 他船的初始位置和速度,速度为0时视为静态障碍物
+    #船舶信息：x,y,航向,速度,膨化圆半径
+    os = [5.0, 0.0, 45.0, 0.15, 0.5] # 我船的初始位置和速度
+    ts = [9, 0.0, 315.0, 0.1, 0.3]  # 他船的信息，速度为零时视为静态障碍物
 
     goal = [0,10] #目标点位置
 
     apf_values = {
-        '_p':1, #目标位置引力系数
+        '_p':3, #目标位置引力系数
         '_v':0, #目标速度引力系数
-        'eta_d':10, #远距离动态他船的斥力系数
-        'eta_s':10, #远距离静态障碍物的斥力系数
+        'eta_d':2, #远距离动态他船的斥力系数
+        'eta_s':20, #远距离静态障碍物的斥力系数
         'eta_e':0, #近距离任何障碍物的斥力系数
-        'R_ts' :0.5, #他船膨化圆半径
-        'theta_m':45, #最大相对位置线夹角
-        'cd' :6, #碰撞危险检测距离
-        'dm' :3, #我船与他船的安全通过距离
-        'rho_0':6, #他船或障碍物的斥力势场影响范围半径
-        'tau':0.5, #紧急避碰区域大小
+        'd_safe' :0.5, #我船和他船膨化圆边界之间的距离
+        'rho_0':5, #他船或障碍物的斥力势场影响范围半径
+        'tau':0.3, #紧急避碰区域大小
     }
     
     apf = calAPF(os,ts,goal,apf_values)
-    F_req = apf.F_req()
-    F_att = apf.F_att()
-    F = apf.F_total()
+    # F_req = apf.F_req()
+    # F_att = apf.F_att()
+    # F = apf.F_total()
+    # theta = apf.theta_m()
+    # d_m = apf.d_m()
     # d = apf.distance_ship()
-    print(F_req)
+    v = apf.relative_speed()
+    print(v)
     
     
 if __name__ == '__main__':

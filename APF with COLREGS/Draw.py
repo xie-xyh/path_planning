@@ -34,7 +34,7 @@ def draw_ship(ship_info, ax, color, label):
     ax.text(x, y-1, label, color='black', fontsize=12, ha='center')
 
 #画圆
-def draw_circle(ship_info, ax, circle_radius):
+def draw_circle(ship_info, ax, color, text, circle_radius):
     '''
     画圆
     输入参数:船舶信息,
@@ -43,8 +43,11 @@ def draw_circle(ship_info, ax, circle_radius):
     '''
     x = Ship.Ship(ship_info).get_x
     y = Ship.Ship(ship_info).get_y
-    circle = Circle((x, y), circle_radius, fill=False, color='green', linestyle='--')
+    circle = Circle((x, y), circle_radius, fill=False, color=color, linestyle='--')
     ax.add_patch(circle)
+    
+    # 在圆的上方添加标签
+    ax.text(x , y + circle_radius, text, ha='center', va='center')
     
 #画图
 def draw_fig(x_y):
